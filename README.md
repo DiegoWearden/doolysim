@@ -9,8 +9,6 @@ The scheduler emulation uses real vLLM scheduler code under the hood, so the bat
 
 ## Installation
 
-Note: if you had already installed the requirements from `DoolyProf`, you may skip the installation step. 
-
 ```bash
 git clone https://github.com/dooly-project/doolysim.git
 cd doolysim
