@@ -1,4 +1,4 @@
-# doolysim
+# DoolySim
 
 A discrete-event simulator for vLLM LLM-inference serving.
 
