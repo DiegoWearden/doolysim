@@ -1,4 +1,4 @@
-# doolysim
+# DoolySim
 
 A discrete-event simulator for vLLM LLM-inference serving.
 
@@ -44,18 +44,31 @@ python -m doolysim.estimator \
 
 This trains Random Forest regression models from the profiled data, generates predictions across common input ranges, and writes both `.pkl` (for retraining) and `.csv` (for instant simulation loading) artifacts into `--cache-dir`.
 
-### 2. Run a simulation
+### 2. Generate workload
+If you want to run the simulator on a real conversational workload, regenerate from the openchat ShareGPT-4 dataset:
+
+```bash
+python -m simulator.tools.generate_openchat_sharegpt4_dataset \
+    --output example_workloads/openchat-1rps.jsonl \
+    --num-requests 100 \
+    --arrival-rate 1.0 \
+    --tokenizer meta-llama/Llama-3.1-8B \
+    --max-input-len 2048 \
+    --max-output-len 512
+```
+
+The script downloads the openchat-sharegpt4 dataset from Hugging Face, tokenizes each conversation, samples Poisson arrivals at `--arrival-rate` requests/sec, and writes a JSONL file with `{request_id, prompt, prompt_len, output_len, arrival_time}` per line.
+
+A second generator, `simulator.tools.generate_sharegpt_dataset`, accepts a local ShareGPT JSON file via `--sharegpt-path` with the same output schema.
+
+
+### 3. Run a simulation
 
 ```bash
 python -m doolysim.cli \
     --model meta-llama/Llama-3.1-8B \
     --backend FLASHINFER \
-    --cache-dir ./cache/tp1/llama-3.1-8b \
-    --num-requests 100 \
-    --arrival-rate 5.0 \
-    --max-num-seqs 256 \
-    --max-model-len 8192 \
-    --verbose
+    --load-dataset dataset.jsonl
 ```
 
 The simulator prints per-request latency, throughput, and aggregate metrics.
