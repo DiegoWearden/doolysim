@@ -1,0 +1,20 @@
+{
+  "model": "Qwen/Qwen3-30B-A3B",
+  "backend": "FLASHINFER",
+  "tensor_parallel_size": 1,
+  "topology": "mew1",
+  "description": "Example mixed batch with prefill requests",
+  "prefill_requests": [
+    {
+      "tokens": 65,
+      "kv_cache": 0,
+      "comment": "New prefill request with 65 tokens"
+    }
+  ],
+  "decode_requests": [
+    {
+      "tokens": 1,
+      "kv_cache": 512
+    }
+  ]
+}

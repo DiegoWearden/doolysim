@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Simulation outputs
+results/
+cache/
+core/cache/
+dataset/
+
+# Databases / large artifacts
+*.db
+*.db-journal
+*.pkl
+*.csv
+*.png
+*.pdf
+
+# Local working dirs
+local/
+
+# CLAUDE / agent files
+.claude/
+CLAUDE.md

@@ -1,0 +1,12 @@
+# Direct dependencies for doolysim.
+# Versions left unpinned so pip can resolve against your stack.
+# Tested with PyTorch 2.9.1+, vLLM 0.17.x, scikit-learn 1.5+.
+
+torch>=2.9.1
+vllm>=0.17.1
+scikit-learn>=1.5.0
+numpy
+pandas
+tqdm
+matplotlib
+attrs
