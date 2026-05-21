@@ -90,6 +90,7 @@ doolysim/
     ├── cli.py            # `python -m doolysim.cli`
     ├── estimator.py      # `python -m doolysim.estimator`
     └── utils.py
+└── example_workload      # example sharegpt4 workload at 1rps
 ```
 
 ## Citation
