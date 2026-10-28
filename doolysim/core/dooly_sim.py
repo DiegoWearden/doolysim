@@ -69,16 +69,20 @@ class DoolySim:
         # Initialize simulation predictor
         self.model_name = model
         self.backend = backend
+        # dtype and KV-cache dtype come from the emulated engine's resolved
+        # config (the same values vLLM would run with), so the predictor picks
+        # the profiled_models row of exactly this deployment.
         self.latency_estimator = SimulationPredictor(
             model_name=model,
             backend=backend,
             tensor_parallel_size=tensor_parallel_size,
-            dtype=torch.bfloat16,
+            dtype=model_cfg.dtype,
             vllm_config=self.vllm_config,
             cache_dir=cache_dir,
             db_path=db_path,
             topology=topology,  # Pass topology for collective operations
-            fallback_duration_ms=step_duration_ms
+            fallback_duration_ms=step_duration_ms,
+            kv_cache_dtype=str(cache_cfg.cache_dtype),
         )
 
         # Tracking (all in milliseconds)

@@ -51,6 +51,8 @@ class EstimatorConfig:
     train_comm_models: bool = False  # Whether to train collective communication models
     train_comm_only: bool = False  # Train ONLY comm models, skip operation models
     tp_size: Optional[int] = None  # Tensor parallel size filter
+    dtype: Optional[str] = None  # Model dtype filter, as stored by the profiler (e.g. "bfloat16")
+    kv_cache_dtype: Optional[str] = None  # KV-cache dtype filter (vLLM literal, e.g. "auto", "fp8")
     topology: Optional[str] = None  # Network topology filter
     collective_backend: Optional[str] = None  # Collective backend filter (e.g., "NCCL")
     embedding_dim: int = 4096  # Model embedding dimension (for calculating max size_bytes)
@@ -117,6 +119,12 @@ class SimplifiedExecutionTimeEstimator:
         if self.config.tp_size is not None:
             model_where_conditions.append("pm.tp_degree = ?")
             model_params.append(self.config.tp_size)
+        if self.config.dtype:
+            model_where_conditions.append("pm.dtype = ?")
+            model_params.append(self.config.dtype)
+        if self.config.kv_cache_dtype:
+            model_where_conditions.append("pm.kv_cache_dtype = ?")
+            model_params.append(self.config.kv_cache_dtype)
 
         if model_where_conditions:
             model_ops_query += " WHERE " + " AND ".join(model_where_conditions)
@@ -170,6 +178,10 @@ class SimplifiedExecutionTimeEstimator:
             filter_info.append(f"backend={self.config.backend}")
         if self.config.tp_size is not None:
             filter_info.append(f"tp={self.config.tp_size}")
+        if self.config.dtype:
+            filter_info.append(f"dtype={self.config.dtype}")
+        if self.config.kv_cache_dtype:
+            filter_info.append(f"kv_cache_dtype={self.config.kv_cache_dtype}")
 
         filter_str = f" (filtered by {', '.join(filter_info)})" if filter_info else ""
         print(f"Loaded {len(self.results_df)} results{filter_str}")
@@ -180,10 +192,12 @@ class SimplifiedExecutionTimeEstimator:
                 f"  model={self.config.model}\n"
                 f"  backend={self.config.backend}\n"
                 f"  tp_size={self.config.tp_size}\n"
+                f"  dtype={self.config.dtype}\n"
+                f"  kv_cache_dtype={self.config.kv_cache_dtype}\n"
                 f"  db_path={self.config.db_path}\n"
                 "List what's actually in the DB with:\n"
                 f"  sqlite3 {self.config.db_path} "
-                "'SELECT model_name, backend, tp_degree FROM profiled_models;'"
+                "'SELECT model_name, backend, tp_degree, dtype, kv_cache_dtype FROM profiled_models;'"
             )
 
         # Check if new columns exist, otherwise parse from workload_params
@@ -988,7 +1002,7 @@ class SimplifiedExecutionTimeEstimator:
 def main(model_name=None, backend=None, db_path=None, cache_dir=None,
          max_tokens=16384, max_batch_size=32,
          train_comm=False, train_comm_only=False, tp_size=None, embedding_dim=4096,
-         topology="DGX", collective_backend="NCCL"):
+         topology="DGX", collective_backend="NCCL", dtype=None, kv_cache_dtype=None):
 
     # Initialize estimator with optional filtering. Resolution order:
     # explicit arg > DOOLYSIM_CACHE_DIR/DB_PATH env var > error.
@@ -1007,6 +1021,8 @@ def main(model_name=None, backend=None, db_path=None, cache_dir=None,
         train_comm_models=train_comm or train_comm_only,  # Enable if either flag is set
         train_comm_only=train_comm_only,
         tp_size=tp_size,
+        dtype=dtype,
+        kv_cache_dtype=kv_cache_dtype,
         embedding_dim=embedding_dim,
         topology=topology,
         collective_backend=collective_backend,
@@ -1020,6 +1036,10 @@ def main(model_name=None, backend=None, db_path=None, cache_dir=None,
         print(f"Model filter: {model_name}")
     if backend:
         print(f"Backend filter: {backend}")
+    if dtype:
+        print(f"dtype filter: {dtype}")
+    if kv_cache_dtype:
+        print(f"KV-cache dtype filter: {kv_cache_dtype}")
 
     estimator = SimplifiedExecutionTimeEstimator(config)
 
@@ -1051,6 +1071,10 @@ if __name__ == "__main__":
     parser.add_argument("--train-comm", action="store_true", help="Train collective communication models")
     parser.add_argument("--train-comm-only", action="store_true", help="Train ONLY comm models, skip operation models")
     parser.add_argument("--tp-size", type=int, default=None, help="Filter comm data by tensor parallel size")
+    parser.add_argument("--dtype", type=str, default=None,
+                        help="Filter by model dtype as stored by the profiler (e.g. bfloat16, float16)")
+    parser.add_argument("--kv-cache-dtype", type=str, default=None,
+                        help="Filter by KV-cache dtype (vLLM literal: auto, fp8, fp8_e4m3, fp8_e5m2)")
     parser.add_argument("--embedding-dim", type=int, default=4096, help="Model embedding dimension (for max size_bytes calculation)")
     parser.add_argument("--topology", type=str, default="mew1", help="Filter comm data by topology (e.g., 'DGX', 'NVLINK')")
     parser.add_argument("--collective-backend", type=str, default="NCCL", help="Collective communication backend (e.g., 'NCCL')")
@@ -1065,6 +1089,8 @@ if __name__ == "__main__":
         train_comm=args.train_comm,
         train_comm_only=args.train_comm_only,
         tp_size=args.tp_size,
+        dtype=args.dtype,
+        kv_cache_dtype=args.kv_cache_dtype,
         embedding_dim=args.embedding_dim,
         topology=args.topology,
         collective_backend=args.collective_backend,

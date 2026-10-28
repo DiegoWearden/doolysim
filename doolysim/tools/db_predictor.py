@@ -1,6 +1,6 @@
 """Direct-from-DB latency predictor.
 
-Drop-in replacement for `simulator.benchmark.batch_predictor` that bypasses
+Drop-in replacement for `doolysim.benchmark.batch_predictor` that bypasses
 the trained estimator entirely. For each operation profiled for the
 (model, backend) pair, we look up the median per-call latency at the
 matching shape directly in `results`, then sum count * per_call across all
@@ -33,14 +33,23 @@ import sys
 from pathlib import Path
 
 
-def get_ops(conn, model, backend, tp=1):
-    return conn.execute("""
+def get_ops(conn, model, backend, tp=1, dtype=None, kv_cache_dtype=None):
+    """Operations of one profiled deployment. dtype / kv_cache_dtype narrow the
+    selection when the DB holds several deployments of the same model (they
+    are part of profiled_models' key); None leaves that dimension unfiltered."""
+    where = "pm.model_name=? AND pm.backend=? AND pm.tp_degree=?"
+    params = [model, backend, tp]
+    if dtype is not None:
+        where += " AND pm.dtype=?"; params.append(dtype)
+    if kv_cache_dtype is not None:
+        where += " AND pm.kv_cache_dtype=?"; params.append(kv_cache_dtype)
+    return conn.execute(f"""
         SELECT s.operation_name, s.signature_hash, mo.count
         FROM model_operations mo
         JOIN signatures      s ON s.operation_id = mo.operation_id
         JOIN profiled_models pm ON pm.model_id   = mo.model_id
-        WHERE pm.model_name=? AND pm.backend=? AND pm.tp_degree=?
-    """, (model, backend, tp)).fetchall()
+        WHERE {where}
+    """, params).fetchall()
 
 
 def is_context_op(conn, sig):
@@ -78,6 +87,8 @@ def predict_one(conn, batch_cfg):
     model   = batch_cfg["model"]
     backend = batch_cfg["backend"]
     tp      = batch_cfg.get("tensor_parallel_size", 1)
+    dtype   = batch_cfg.get("dtype")            # e.g. "bfloat16"; None = unfiltered
+    kv_cache_dtype = batch_cfg.get("kv_cache_dtype")  # e.g. "auto", "fp8"; None = unfiltered
     prefill = batch_cfg.get("prefill_requests", [])
     decode  = batch_cfg.get("decode_requests", [])
 
@@ -99,9 +110,9 @@ def predict_one(conn, batch_cfg):
     else:
         kv_cache_for_attn = 0
 
-    ops = get_ops(conn, model, backend, tp)
+    ops = get_ops(conn, model, backend, tp, dtype, kv_cache_dtype)
     if not ops:
-        raise RuntimeError(f"No model_operations rows for ({model}, {backend}, tp={tp})")
+        raise RuntimeError(f"No model_operations rows for ({model}, {backend}, tp={tp}, dtype={dtype}, kv_cache_dtype={kv_cache_dtype})")
 
     breakdown = []
     total_ms = 0.0

@@ -5,7 +5,7 @@ CSV prediction caches and estimates latency for each simulation step based on
 batch composition and operation counts.
 
 This is a runtime-only component - it does NOT train models. Training must be
-done separately using simulator.estimator.
+done separately using doolysim.estimator.
 """
 
 from typing import Dict, Tuple, Optional, List
@@ -46,7 +46,7 @@ class SimulationPredictor:
     - Operation counts from profiling
     - Collective communication configurations
 
-    NOTE: This class does NOT train models. Use simulator.estimator for training.
+    NOTE: This class does NOT train models. Use doolysim.estimator for training.
     """
 
     def __init__(
@@ -61,6 +61,7 @@ class SimulationPredictor:
         topology: str = "mew1",
         fallback_duration_ms: float = 10.0,
         use_csv_cache: bool = True,
+        kv_cache_dtype: str = "auto",
     ):
         """Initialize latency estimator.
 
@@ -73,6 +74,10 @@ class SimulationPredictor:
             topology: GPU interconnect topology for collective operations
             fallback_duration_ms: Fallback step duration if models fail to load
             use_csv_cache: If True, try to load from CSV cache first (faster)
+            kv_cache_dtype: vLLM KV-cache dtype literal of the deployment
+                ("auto", "fp8", ...). Together with model, backend, TP and
+                dtype it selects the profiled_models row, so a database that
+                holds several deployments of one model never mixes them.
         """
         self.model_name = model_name
         self.backend = backend
@@ -84,6 +89,16 @@ class SimulationPredictor:
         # Extract TP size and topology for collective operations
         self.tp_size = tensor_parallel_size
         self.topology = topology
+        # Deployment key of the profiled_models row this simulation uses:
+        # (model, backend, tp, dtype, kv_cache_dtype). dtype is named the way
+        # the profiler stores it (str(torch.dtype) without the prefix).
+        self.dtype_name = str(dtype).split(".")[-1]
+        self.kv_cache_dtype = kv_cache_dtype
+        self._deployment_where = (
+            "pm.model_name = ? AND pm.backend = ? AND pm.tp_degree = ? "
+            "AND pm.dtype = ? AND pm.kv_cache_dtype = ?"
+        )
+        self._deployment_params = (model_name, backend, tensor_parallel_size, self.dtype_name, kv_cache_dtype)
 
         # Extract model config for size calculations
         self.dtype_bytes = DTYPE_TO_BYTES.get(dtype)
@@ -187,17 +202,18 @@ class SimulationPredictor:
                 FROM model_operations mo
                 JOIN signatures s ON mo.operation_id = s.operation_id
                 JOIN profiled_models pm ON mo.model_id = pm.model_id
-                WHERE pm.model_name = ? AND pm.backend = ?
-            """
+                WHERE {where}
+            """.format(where=self._deployment_where)
 
-            cursor = conn.execute(query, (self.model_name, self.backend))
+            cursor = conn.execute(query, self._deployment_params)
             operations = {}
             for row in cursor:
                 op_name, sig_hash, count = row
                 operations[(op_name, sig_hash)] = count
 
             conn.close()
-            print(f"Loaded {len(operations)} operation signatures from database (backend={self.backend})")
+            print(f"Loaded {len(operations)} operation signatures from database "
+                  f"(backend={self.backend}, tp={self.tp_size}, dtype={self.dtype_name}, kv_cache_dtype={self.kv_cache_dtype})")
             return operations
 
         except Exception as e:
@@ -223,10 +239,10 @@ class SimulationPredictor:
                 JOIN results r ON r.signature_hash = s.signature_hash
                 JOIN model_operations mo ON mo.operation_id = s.operation_id
                 JOIN profiled_models pm ON pm.model_id = mo.model_id
-                WHERE pm.model_name = ? AND pm.backend = ?
+                WHERE {where}
                   AND r.is_context = 1
-                """,
-                (self.model_name, self.backend),
+                """.format(where=self._deployment_where),
+                self._deployment_params,
             ).fetchall()
             conn.close()
             result = {(op, sig) for op, sig in rows}
@@ -255,13 +271,12 @@ class SimulationPredictor:
                 FROM model_collectives mc
                 JOIN coll_ops co ON mc.collective_id = co.collective_id
                 JOIN profiled_models pm ON mc.model_id = pm.model_id
-                WHERE pm.model_name = ?
-                  AND pm.backend = ?
+                WHERE {where}
                   AND co.topology = ?
                   AND co.tp_degree = ?
-            """
+            """.format(where=self._deployment_where)
 
-            cursor = conn.execute(query, (self.model_name, self.backend, self.topology, self.tp_size))
+            cursor = conn.execute(query, (*self._deployment_params, self.topology, self.tp_size))
             collectives = cursor.fetchall()
             conn.close()
 
@@ -302,13 +317,11 @@ class SimulationPredictor:
                 FROM model_collective_configs mcc
                 JOIN coll_ops co ON mcc.collective_id = co.collective_id
                 JOIN profiled_models pm ON mcc.model_id = pm.model_id
-                WHERE pm.model_name = ?
-                  AND pm.backend = ?
-                  AND pm.tp_degree = ?
+                WHERE {where}
                   AND co.topology = ?
-            """
+            """.format(where=self._deployment_where)
 
-            cursor = conn.execute(query, (self.model_name, self.backend, self.tp_size, self.topology))
+            cursor = conn.execute(query, (*self._deployment_params, self.topology))
             configs = {}
             for row in cursor:
                 op_name, dim_param, num_dims, batch_param, model_config_dim = row

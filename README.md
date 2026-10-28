@@ -40,6 +40,8 @@ python -m doolysim.estimator \
     --train-comm
 ```
 
+A profiling database may hold several deployments of one model (different TP degree, model dtype or KV-cache dtype). `--tp-size`, `--dtype` and `--kv-cache-dtype` select which one to train on; they default to all rows, bf16 and `auto` respectively, mirroring the profiler's defaults.
+
 This trains Random Forest regression models from the profiled data, generates predictions across common input ranges, and writes both `.pkl` (for retraining) and `.csv` (for instant simulation loading) artifacts into `--cache-dir`.
 
 ### 2. Generate workload
@@ -72,6 +74,7 @@ python -m doolysim.cli \
 The simulator prints per-request latency, throughput, and aggregate metrics.
 
 Useful flags:
+- `--dtype` / `--kv-cache-dtype`: model dtype and KV-cache dtype of the deployment (vLLM literals, default `auto`). They configure the emulated engine and select the matching profiled rows, so an fp8-KV-cache deployment uses the attention latencies profiled with an fp8 cache
 - `--use-vllm-dataset`: use vLLM's RandomDataset for reproducible workloads
 - `--load-dataset PATH`: replay a saved JSONL request dataset
 - `--export-json PATH`: emit results in vLLM's benchmark format for comparison

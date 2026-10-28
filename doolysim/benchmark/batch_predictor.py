@@ -96,7 +96,8 @@ class BatchPredictor:
         tensor_parallel_size: int = 1,
         topology: str = "mew1",
         dtype: torch.dtype = torch.bfloat16,
-        verbose: bool = False
+        verbose: bool = False,
+        kv_cache_dtype: str = "auto",
     ):
         """Initialize the batch predictor.
 
@@ -109,6 +110,7 @@ class BatchPredictor:
             topology: GPU interconnect topology
             dtype: Data type for tensors
             verbose: Enable verbose output
+            kv_cache_dtype: KV-cache dtype literal of the profiled deployment ("auto", "fp8", ...)
         """
         self.model_name = model_name
         self.backend = backend
@@ -143,7 +145,8 @@ class BatchPredictor:
             db_path=db_path,
             topology=topology,
             fallback_duration_ms=10.0,
-            use_csv_cache=True
+            use_csv_cache=True,
+            kv_cache_dtype=kv_cache_dtype
         )
 
     def predict(self, batch_config: SimpleBatchConfig) -> Dict[str, float]:

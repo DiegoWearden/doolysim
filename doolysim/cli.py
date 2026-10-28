@@ -20,6 +20,11 @@ def main():
                        help="Backend used for profiling")
     parser.add_argument("--tp", type=int, default=1,
                        help="Tensor parallel size (sets VLLM_FAKE_TP env var)")
+    parser.add_argument("--dtype", type=str, default="auto",
+                        help="Model dtype passed to the emulated vLLM engine (auto, bfloat16, float16); selects the profiled dtype")
+    parser.add_argument("--kv-cache-dtype", type=str, default="auto",
+                        help="vLLM KV-cache dtype literal (auto, fp8, fp8_e4m3, fp8_e5m2); passed to the emulated engine and "
+                             "used to select the profiled KV-cache dtype")
     parser.add_argument("--topology", type=str, default="mew1",
                        help="GPU interconnect topology for collective operations (default: mew1)")
     # Paths ################################################
@@ -167,6 +172,7 @@ def main():
     print("=" * 60)
     print(f"Model: {args.model}")
     print(f"Backend: {args.backend}")
+    print(f"TP: {args.tp}  dtype: {args.dtype}  kv_cache_dtype: {args.kv_cache_dtype}")
     print(f"Cache dir: {args.cache_dir}")
     print(f"DB path: {args.db_path}")
     print()
@@ -181,6 +187,8 @@ def main():
             "max_num_seqs": args.max_num_seqs,
             "max_num_batched_tokens": args.max_num_batched_tokens,
             "enable_prefix_caching": False,
+            "dtype": args.dtype,
+            "kv_cache_dtype": args.kv_cache_dtype,
         },
         cache_dir=args.cache_dir,
         db_path=args.db_path,

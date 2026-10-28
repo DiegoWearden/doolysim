@@ -934,6 +934,8 @@ def main():
     parser.add_argument('--out-dir', type=str, default='./result/')
     parser.add_argument('--quantization', type=str, default=None, choices=["fp8", "awq", "gptq"],
                        help="Optional quantization scheme. 'fp8' requires Hopper+. With load_format=dummy, vLLM initializes random quantized weights.")
+    parser.add_argument('--enforce-eager', action='store_true', default=False,
+                       help="Run vLLM in eager mode (no CUDA graphs / torch.compile fusion) to match the eager per-operation profiling DB.")
     args = parser.parse_args()
 
     print("=" * 80)
@@ -973,7 +975,7 @@ def main():
         max_model_len=args.max_model_len,
         max_num_batched_tokens=args.max_model_len,
         load_format="dummy",
-        enforce_eager=False,
+        enforce_eager=args.enforce_eager,
         enable_prefix_caching=False,
         attention_config=({"flash_attn_version": 2} if args.attention_backend == 'FLASH_ATTN' else None),
         # compilation_config=CompilationConfig(
