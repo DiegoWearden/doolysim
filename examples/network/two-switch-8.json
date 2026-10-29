@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "name": "two-switch-8",
+  "ranks": 8,
+  "switches": 2,
+  "packet_bytes": 4096,
+  "defaults": { "rate": "400Gbps", "delay": "500ns", "queue_bytes": 1048576, "buffer_bytes": 4194304 },
+  "links": [
+    { "a": "r0", "b": "s0" },
+    { "a": "r1", "b": "s0" },
+    { "a": "r2", "b": "s0" },
+    { "a": "r3", "b": "s0" },
+    { "a": "r4", "b": "s1" },
+    { "a": "r5", "b": "s1" },
+    { "a": "r6", "b": "s1" },
+    { "a": "r7", "b": "s1" },
+    { "a": "s0", "b": "s1" }
+  ]
+}

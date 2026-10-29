@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "name": "star-8",
+  "ranks": 8,
+  "switches": 1,
+  "packet_bytes": 4096,
+  "generator": "star",
+  "defaults": { "rate": "400Gbps", "delay": "500ns", "queue_bytes": 1048576 }
+}

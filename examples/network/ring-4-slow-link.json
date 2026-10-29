@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "name": "ring-4-slow-link",
+  "ranks": 4,
+  "switches": 0,
+  "packet_bytes": 4096,
+  "defaults": { "rate": "400Gbps", "delay": "500ns", "queue_bytes": 1048576 },
+  "links": [
+    { "a": "r0", "b": "r1" },
+    { "a": "r1", "b": "r2" },
+    { "a": "r2", "b": "r3", "rate": "100Gbps" },
+    { "a": "r3", "b": "r0" }
+  ]
+}

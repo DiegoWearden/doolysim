@@ -80,6 +80,23 @@ Useful flags:
 - `--export-json PATH`: emit results in vLLM's benchmark format for comparison
 - `--show-per-request`: show per-request latency breakdown
 
+## ns-3 network backend (experimental)
+
+`ns3_backend/` holds a standalone ns-3 scenario that simulates one collective
+(ring AllReduce, ReduceScatter, AllGather, or a single transfer) over a
+configurable accelerator fabric and reports its completion time, so that
+collective-communication latency can come from a packet-level network model
+instead of profiled measurements. It builds without GPUs:
+
+```bash
+ns3_backend/setup_ns3.sh      # minimal ns-3.49 into ~/ns-3-dev
+ns3_backend/build.sh          # ns3_backend/build/dooly-collective
+python -m pytest tests/test_ns3_analytical.py tests/test_ns3_ring.py -q
+```
+
+See [ns3_backend/README.md](./ns3_backend/README.md) for the topology and
+result schemas and what the model does and does not capture.
+
 ## Repository layout
 
 ```
@@ -92,7 +109,11 @@ doolysim/
     ├── tools/            # dataset generation + alt latency predictor
     ├── cli.py            # `python -m doolysim.cli`
     ├── estimator.py      # `python -m doolysim.estimator`
+    ├── network/          # ns-3 runner + analytical ring model
     └── utils.py
+├── ns3_backend/          # dooly-collective ns-3 scenario (C++), build scripts
+├── examples/network/     # topology files for the ns-3 backend
+├── tests/                # pytest suite
 └── example_workload      # example sharegpt4 workload at 1rps
 ```
 
